@@ -11,12 +11,12 @@ class GeneticAlgorithm:
             mutation_function (function): The function to mutate an individual. mutation(individual) -> mutated_individual
         """
         
-        self.population = initial_population
+        self.population = initial_population.copy()
         self.fitness_function = fitness_function
         self.crossover_function = crossover_function
         self.mutation_function = mutation_function
 
-        self.population_fitness = None
+        self.population_fitness = self.evaluate_population_fitness()
         self._population_size = len(initial_population)
 
     def evaluate_population_fitness(self):
@@ -25,7 +25,8 @@ class GeneticAlgorithm:
 
     def select(self, n_individuals):
         """Select the fittest individuals from the population"""
-        return [self.population[i] for i in np.argsort(self.population_fitness)[-n_individuals:]]
+        best_indices = np.argsort(self.population_fitness)[-n_individuals:]
+        return [self.population[i] for i in best_indices], best_indices
 
     def produce_offspring(self, parent_candidates, number_of_offspring):
         """Generate offspring from selected parents"""
@@ -43,24 +44,24 @@ class GeneticAlgorithm:
 
     def _next_generation(self, number_of_parents, number_of_offspring):
         """Generate the next generation from the current population"""
+
         # Evaluate fitness
         self.evaluate_population_fitness()
 
         # Pick parents & produce offspring
-        parent_candidates = self.select(number_of_parents)
+        parent_candidates, _ = self.select(number_of_parents)
         offspring = self.produce_offspring(parent_candidates, number_of_offspring)
 
         # Evaluate offspring fitness
         offspring_fitnesses = np.array([self.fitness_function(individual) for individual in offspring])
 
         # Add offspring to the population
-        self.population = np.concatenate((self.population, offspring))
+        self.population.extend(offspring)
         self.population_fitness = np.concatenate((self.population_fitness, offspring_fitnesses))
-        
+
         # Select the fittest individuals
-        self.population = self.select(self._population_size)
-        # note: at this point, the population fitness size does not match the population size anymore
-        # this gets fixed the next time evaluate_population_fitness is called
+        self.population, best_indices = self.select(self._population_size)
+        self.population_fitness = self.population_fitness[best_indices]
 
     def evolve(self, number_of_generations, number_of_parents, number_of_offspring):
         """Evolve the population over a number of generations"""
@@ -71,4 +72,4 @@ class GeneticAlgorithm:
             self._next_generation(number_of_parents, number_of_offspring)
             generational_fitness.append(max(self.population_fitness))
 
-        return self.population, generational_fitness
+        return self.population, self.population_fitness, generational_fitness
